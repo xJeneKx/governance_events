@@ -1,6 +1,9 @@
 const Discord = require('discord.js');
 const conf = require('ocore/conf.js');
 
+const DISCORD_SEND_RETRY_DELAY_MS = 5000;
+const DISCORD_SEND_MAX_ATTEMPTS = 5;
+
 var discordClient = null;
 
 async function initDiscord(){
@@ -82,15 +85,45 @@ function announceEvent(aa_name, symbol, decimals, url, event, fullExplorerURL){
 	sendToDiscord(msg);
 }
 
+function wait(ms){
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function sendToDiscordChannels(to_be_sent, attempt){
+	await Promise.all(conf.discord_channels.map(async function(channelId){
+		console.log(`Sending Discord notification to channel ${channelId}, attempt ${attempt}/${DISCORD_SEND_MAX_ATTEMPTS}`);
+		const channel = await discordClient.channels.fetch(channelId);
+		await channel.send(to_be_sent);
+		console.log(`Discord notification sent to channel ${channelId}`);
+	}));
+}
+
+async function sendToDiscordWithRetry(to_be_sent){
+	let lastError = null;
+	for (let attempt = 1; attempt <= DISCORD_SEND_MAX_ATTEMPTS; attempt++) {
+		try {
+			await sendToDiscordChannels(to_be_sent, attempt);
+			return;
+		} catch (error) {
+			lastError = error;
+			console.error(`Discord notification attempt ${attempt}/${DISCORD_SEND_MAX_ATTEMPTS} failed: ${error.message || error}`);
+			if (attempt < DISCORD_SEND_MAX_ATTEMPTS)
+				await wait(DISCORD_SEND_RETRY_DELAY_MS);
+		}
+	}
+	throw lastError;
+}
+
 function sendToDiscord(to_be_sent){
-	if (!discordClient)
-		return console.log("discord client not initialized");
+	if (!discordClient) {
+		console.error("discord client not initialized");
+		process.exit(1);
+	}
 	if (process.env.mute)
 		return console.log("client muted");
-	conf.discord_channels.forEach(function(channelId){
-		discordClient.channels.fetch(channelId).then(function(channel){
-			channel.send(to_be_sent);
-		});
+	sendToDiscordWithRetry(to_be_sent).catch(function(error){
+		console.error(`Discord notification failed after ${DISCORD_SEND_MAX_ATTEMPTS} attempts: ${error.message || error}`);
+		process.exit(1);
 	});
 }
 
