@@ -81,6 +81,11 @@ function announceEvent(aa_name, symbol, decimals, url, event, fullExplorerURL){
 			.setDescription(description + ' has withdrawn `' + applyDecimals(event.amount, decimals) + ' ' + (symbol || defaultSymbol) + '` from their balance')
 			break;
 	}
+
+	const formattedTimestamp = formatTimestamp(event.timestamp);
+	if (formattedTimestamp)
+		msg.addFields({ name: 'Date', value: formattedTimestamp });
+
 	msg.addFields({name: 'Trigger unit', value: '[' + event.trigger_unit + ']('+ fullExplorerURL +')'});
 	sendToDiscord(msg);
 }
@@ -131,6 +136,18 @@ function applyDecimals(amount, decimals){
 	if (!amount)
 		return 0;
 	return amount / (10 ** decimals);
+}
+
+function formatTimestamp(timestamp) {
+	const normalizedTimestamp = Number(timestamp);
+	if (!Number.isFinite(normalizedTimestamp) || normalizedTimestamp <= 0)
+		return null;
+
+	const date = new Date(Math.floor(normalizedTimestamp) * 1000);
+	if (Number.isNaN(date.getTime()))
+		return null;
+
+	return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
 }
 
 exports.setBotActivity = setBotActivity;

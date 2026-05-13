@@ -13,7 +13,8 @@ async function treatResponseFromGovernanceAA(objResponse, asset){
 		aa_address: governanceAAAddress,
 		trigger_address: objResponse.trigger_address,
 		trigger_unit: objResponse.trigger_unit,
-		obj_response_unit: objResponse.objResponseUnit
+		obj_response_unit: objResponse.objResponseUnit,
+		timestamp: objTriggerUnit.timestamp
 	}
 
 	if (data.name){
